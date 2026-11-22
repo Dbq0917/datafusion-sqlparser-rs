@@ -23665,3 +23665,34 @@ fn parse_grant_revoke_all_privileges_columns() {
         ParserError::ParserError("Expected: identifier, found: )".to_string())
     );
 }
+
+#[test]
+fn parse_backtick_delimited_identifiers_across_dialects() {
+    let dialects = TestedDialects::new(vec![
+        Box::new(MySqlDialect {}),
+        Box::new(PostgreSqlDialect {}),
+    ]);
+
+    let statement = dialects.verified_stmt("SELECT `a``b` FROM `t`");
+    let Statement::Query(query) = statement else {
+        panic!("expected a query");
+    };
+    let select = query.body.as_select().expect("expected a select");
+    assert_eq!(
+        &Expr::Identifier(Ident::with_quote('`', "a`b")),
+        expr_from_projection(only(&select.projection))
+    );
+    let TableFactor::Table { name, alias, .. } = &only(&select.from).relation else {
+        panic!("expected a table");
+    };
+    assert_eq!(&ObjectName::from(vec![Ident::with_quote('`', "t")]), name);
+    assert!(alias.is_none());
+
+    assert_eq!(
+        dialects
+            .parse_sql_statements("SELECT `unterminated")
+            .unwrap_err()
+            .to_string(),
+        "sql parser error: Expected close delimiter '`' before EOF. at Line: 1, Column: 8"
+    );
+}
