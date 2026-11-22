@@ -23,9 +23,6 @@ use core::{
     ops::{Deref, DerefMut},
 };
 
-#[cfg(feature = "bigdecimal")]
-use bigdecimal::BigDecimal;
-
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
@@ -137,15 +134,8 @@ impl DerefMut for ValueWithSpan {
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[cfg_attr(feature = "visitor", derive(Visit, VisitMut))]
 pub enum Value {
-    /// Numeric literal
-    #[cfg(not(feature = "bigdecimal"))]
+    /// Numeric literal, stored as written.
     Number(String, bool),
-    #[cfg(feature = "bigdecimal")]
-    /// HINT: use `test_utils::number` to make an instance of
-    /// Value::Number This might help if you your tests pass locally
-    /// but fail on CI with the `--all-features` flag enabled
-    /// Numeric literal (uses `BigDecimal` when the `bigdecimal` feature is enabled).
-    Number(BigDecimal, bool),
     /// 'string value'
     SingleQuotedString(String),
     /// Dollar-quoted string literal, e.g. `$$...$$` or `$tag$...$tag$` (Postgres syntax).

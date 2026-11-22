@@ -6745,7 +6745,6 @@ fn test_complex_postgres_insert_with_alias() {
     pg().verified_stmt(sql1);
 }
 
-#[cfg(not(feature = "bigdecimal"))]
 #[test]
 fn test_simple_postgres_insert_with_alias() {
     let sql2 = "INSERT INTO test_tables AS test_table (id, a) VALUES (DEFAULT, 123)";
@@ -6795,91 +6794,6 @@ fn test_simple_postgres_insert_with_alias() {
                     rows: vec![Parens::with_empty_span(vec![
                         Expr::Identifier(Ident::new("DEFAULT")),
                         Expr::Value((Value::Number("123".to_string(), false)).with_empty_span())
-                    ])]
-                })),
-                order_by: None,
-                limit_clause: None,
-                fetch: None,
-                locks: vec![],
-                for_clause: None,
-                settings: None,
-                format_clause: None,
-                pipe_operators: vec![],
-            })),
-            assignments: vec![],
-            partitioned: None,
-            after_columns: vec![],
-            overriding: None,
-            has_table_keyword: false,
-            on: None,
-            returning: None,
-            output: None,
-            replace_into: false,
-            priority: None,
-            insert_alias: None,
-            settings: None,
-            format_clause: None,
-            multi_table_insert_type: None,
-            multi_table_into_clauses: vec![],
-            multi_table_when_clauses: vec![],
-            multi_table_else_clause: None,
-        })
-    )
-}
-
-#[cfg(feature = "bigdecimal")]
-#[test]
-fn test_simple_postgres_insert_with_alias() {
-    let sql2 = "INSERT INTO test_tables AS test_table (id, a) VALUES (DEFAULT, 123)";
-
-    let statement = pg().verified_stmt(sql2);
-
-    assert_eq!(
-        statement,
-        Statement::Insert(Insert {
-            insert_token: AttachedToken::empty(),
-            optimizer_hints: vec![],
-            or: None,
-            ignore: false,
-            into: true,
-            table: TableObject::TableName(ObjectName::from(vec![Ident {
-                value: "test_tables".to_string(),
-                quote_style: None,
-                span: Span::empty(),
-            }])),
-            table_alias: Some(TableAliasWithoutColumns {
-                explicit: true,
-                alias: Ident {
-                    value: "test_table".to_string(),
-                    quote_style: None,
-                    span: Span::empty(),
-                }
-            }),
-            columns: vec![
-                ObjectName::from(Ident {
-                    value: "id".to_string(),
-                    quote_style: None,
-                    span: Span::empty(),
-                }),
-                ObjectName::from(Ident {
-                    value: "a".to_string(),
-                    quote_style: None,
-                    span: Span::empty(),
-                })
-            ],
-            by_name: false,
-            overwrite: false,
-            source: Some(Box::new(Query {
-                with: None,
-                body: Box::new(SetExpr::Values(Values {
-                    value_keyword: false,
-                    explicit_row: false,
-                    rows: vec![Parens::with_empty_span(vec![
-                        Expr::Identifier(Ident::new("DEFAULT")),
-                        Expr::Value(
-                            (Value::Number(bigdecimal::BigDecimal::new(123.into(), 0), false))
-                                .with_empty_span()
-                        )
                     ])]
                 })),
                 order_by: None,
@@ -11754,12 +11668,7 @@ fn parse_drop_foreign_table_rejects_modifiers() {
 #[test]
 fn parse_non_decimal_integer_literals() {
     let sql = "SELECT 0x1F, 0X1F, 0o17, 0O17, 0b101, 0B101, 0x_1F, 0xFF_FF, 0xFFFFFFFFFFFFFFFFFFFF";
-    let canonical = if cfg!(feature = "bigdecimal") {
-        "SELECT 31, 31, 15, 15, 5, 5, 31, 65535, 1208925819614629174706175"
-    } else {
-        sql
-    };
-    let select = pg().verified_only_select_with_canonical(sql, canonical);
+    let select = pg().verified_only_select(sql);
     for item in &select.projection {
         assert!(
             matches!(
@@ -11790,19 +11699,6 @@ fn parse_non_decimal_integer_literals() {
         let err = pg().parse_sql_statements(sql).unwrap_err().to_string();
         assert!(err.contains(message), "{sql}: {err}");
     }
-}
-
-#[cfg(feature = "bigdecimal")]
-#[test]
-fn parse_non_decimal_integer_token_with_invalid_digits() {
-    let err = Parser::new(&PostgreSqlDialect {})
-        .with_tokens(vec![Token::Number("0xZZ".to_string(), false)])
-        .parse_value()
-        .unwrap_err();
-    assert_eq!(
-        err,
-        ParserError::ParserError("Could not parse '0xZZ' as an integer".to_string())
-    );
 }
 
 #[test]

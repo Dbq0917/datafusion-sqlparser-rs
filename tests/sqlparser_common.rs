@@ -61,13 +61,7 @@ use sqlparser::test_utils::all_dialects_except;
 fn parse_numeric_literal_underscore() {
     let dialects = all_dialects_where(|d| d.supports_numeric_literal_underscores());
 
-    let canonical = if cfg!(feature = "bigdecimal") {
-        "SELECT 10000"
-    } else {
-        "SELECT 10_000"
-    };
-
-    let select = dialects.verified_only_select_with_canonical("SELECT 10_000", canonical);
+    let select = dialects.verified_only_select("SELECT 10_000");
 
     assert_eq!(
         select.projection,
@@ -1351,13 +1345,7 @@ fn parse_select_expr_star() {
         AccessExpr::Dot(Expr::Identifier(_))
     ));
 
-    dialects.one_statement_parses_to(
-        "SELECT 2. * 3 FROM T",
-        #[cfg(feature = "bigdecimal")]
-        "SELECT 2 * 3 FROM T",
-        #[cfg(not(feature = "bigdecimal"))]
-        "SELECT 2. * 3 FROM T",
-    );
+    dialects.verified_only_select("SELECT 2. * 3 FROM T");
     dialects.verified_only_select("SELECT myfunc().* FROM T");
 
     // Invalid
@@ -1664,17 +1652,21 @@ fn parse_escaped_single_quote_string_predicate_with_no_escape() {
 fn parse_number() {
     let expr = verified_expr("1.0");
 
-    #[cfg(feature = "bigdecimal")]
-    assert_eq!(
-        expr,
-        Expr::Value((Value::Number(bigdecimal::BigDecimal::from(1), false)).with_empty_span())
-    );
-
-    #[cfg(not(feature = "bigdecimal"))]
     assert_eq!(
         expr,
         Expr::Value((Value::Number("1.0".into(), false)).with_empty_span())
     );
+}
+
+#[test]
+fn parse_number_preserves_literal_text() {
+    for sql in [
+        "SELECT 9999999999999999999",
+        "SELECT 0.1",
+        "SELECT 0.10000000000000001",
+    ] {
+        verified_stmt(sql);
+    }
 }
 
 #[test]
@@ -3911,18 +3903,6 @@ fn parse_ceil_scale() {
     let sql = "SELECT CEIL(d, 2)";
     let select = verified_only_select(sql);
 
-    #[cfg(feature = "bigdecimal")]
-    assert_eq!(
-        &Expr::Ceil {
-            expr: Box::new(Expr::Identifier(Ident::new("d"))),
-            field: CeilFloorKind::Scale(
-                Value::Number(bigdecimal::BigDecimal::from(2), false).with_empty_span()
-            ),
-        },
-        expr_from_projection(only(&select.projection)),
-    );
-
-    #[cfg(not(feature = "bigdecimal"))]
     assert_eq!(
         &Expr::Ceil {
             expr: Box::new(Expr::Identifier(Ident::new("d"))),
@@ -3937,18 +3917,6 @@ fn parse_floor_scale() {
     let sql = "SELECT FLOOR(d, 2)";
     let select = verified_only_select(sql);
 
-    #[cfg(feature = "bigdecimal")]
-    assert_eq!(
-        &Expr::Floor {
-            expr: Box::new(Expr::Identifier(Ident::new("d"))),
-            field: CeilFloorKind::Scale(
-                Value::Number(bigdecimal::BigDecimal::from(2), false).with_empty_span()
-            ),
-        },
-        expr_from_projection(only(&select.projection)),
-    );
-
-    #[cfg(not(feature = "bigdecimal"))]
     assert_eq!(
         &Expr::Floor {
             expr: Box::new(Expr::Identifier(Ident::new("d"))),
