@@ -19333,6 +19333,18 @@ fn join_precedence() {
 
 #[test]
 fn test_nested_join_without_parentheses() {
+    let query = "SELECT * FROM orders AS o JOIN customers AS c LEFT JOIN products AS p ON p.order_id = o.order_id";
+    let from = only(all_dialects().verified_only_select(query).from);
+    assert_eq!(from.joins.len(), 2);
+    assert!(matches!(
+        from.joins[0].join_operator,
+        JoinOperator::Join(JoinConstraint::None)
+    ));
+    assert!(matches!(
+        from.joins[1].join_operator,
+        JoinOperator::Left(JoinConstraint::On(_))
+    ));
+
     let query = "SELECT DISTINCT p.product_id FROM orders AS o INNER JOIN customers AS c INNER JOIN products AS p ON p.customer_id = c.customer_id ON c.order_id = o.order_id";
     assert_eq!(
         only(

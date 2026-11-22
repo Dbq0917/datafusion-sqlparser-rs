@@ -475,11 +475,10 @@ pub trait Dialect: Debug + Any {
         false
     }
 
-    /// Indicates whether the dialect supports left-associative join parsing
-    /// by default when parentheses are omitted in nested joins.
+    /// Indicates whether the dialect parses joins left-associatively when
+    /// parentheses are omitted.
     ///
-    /// Most dialects (like MySQL or Postgres) assume **left-associative** precedence,
-    /// so a query like:
+    /// Most dialects assume **left-associative** precedence, so a query like:
     ///
     /// ```sql
     /// SELECT * FROM t1 NATURAL JOIN t5 INNER JOIN t0 ON ...
@@ -490,15 +489,15 @@ pub trait Dialect: Debug + Any {
     /// ```
     /// and internally represented as a **flat list** of joins.
     ///
-    /// In contrast, some dialects (e.g. **Snowflake**) assume **right-associative**
-    /// precedence and interpret the same query as:
+    /// Some dialects (e.g. **Snowflake**) also support **right-associative**
+    /// parsing when join constraints are deferred, interpreting the same query as:
     /// ```sql
     /// (t1 NATURAL JOIN (t5 INNER JOIN t0 ON ...))
     /// ```
     /// which results in a **nested join** structure in the AST.
     ///
-    /// If this method returns `false`, the parser must build nested join trees
-    /// even in the absence of parentheses to reflect the correct associativity
+    /// If this method returns `false`, deferred constraints produce nested join
+    /// trees. Joins without a deferred constraint remain a flat, left-associative chain.
     fn supports_left_associative_joins_without_parens(&self) -> bool {
         true
     }
